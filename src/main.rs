@@ -30,7 +30,7 @@ fn main() {
         Box::new(stdout()) as Box<dyn Write>
     };
 
-    let mut events_n = args.events_n;
+    let mut events_n = args.number;
 
     let tz = TimeZone::system();
     let mut timestamp_zoned = Zoned::now();
@@ -50,7 +50,12 @@ fn main() {
             sleep(Duration::from_millis(wait_span as u64));
         }
 
-        writeln!(output, "{}", next_minute_zoned.strftime(&format).to_string()).unwrap();
+        writeln!(
+            output,
+            "{}",
+            next_minute_zoned.strftime(&format).to_string()
+        )
+        .unwrap();
 
         next_minute_zoned = Zoned::new(
             next_minute_zoned.timestamp() + Span::new().minutes(1),

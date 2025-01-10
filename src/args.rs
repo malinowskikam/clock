@@ -2,8 +2,8 @@ use gumdrop::Options;
 
 #[derive(Options)]
 pub struct Args {
-    #[options(short = "n", long = "n-events", help = "number of events")]
-    pub events_n: Option<usize>,
+    #[options(help = "number of events")]
+    pub number: Option<usize>,
 
     #[options(help = "output format")]
     pub format: Option<String>,
