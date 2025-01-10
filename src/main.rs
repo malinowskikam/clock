@@ -1,5 +1,7 @@
 mod args;
 
+use std::fs::File;
+use std::io::{stdout, Write};
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
@@ -22,6 +24,12 @@ fn main() {
         "%H:%M:%S".to_string()
     };
 
+    let mut output = if let Some(path) = args.output {
+        Box::new(File::create(path).unwrap()) as Box<dyn Write>
+    } else {
+        Box::new(stdout()) as Box<dyn Write>
+    };
+
     let mut events_n = args.events_n;
 
     let tz = TimeZone::system();
@@ -42,7 +50,7 @@ fn main() {
             sleep(Duration::from_millis(wait_span as u64));
         }
 
-        println!("{}", next_minute_zoned.strftime(&format).to_string());
+        writeln!(output, "{}", next_minute_zoned.strftime(&format).to_string()).unwrap();
 
         next_minute_zoned = Zoned::new(
             next_minute_zoned.timestamp() + Span::new().minutes(1),
