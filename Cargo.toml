@@ -12,3 +12,4 @@ codegen-units = 1
 
 [dependencies]
 gumdrop = "0.8.1"
+jiff = "0.1.21"

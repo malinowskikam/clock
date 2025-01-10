@@ -1,11 +1,13 @@
 mod args;
 
-use std::process::{exit, Command};
+use std::process::exit;
 use std::thread::sleep;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use args::Args;
 use gumdrop::Options;
+use jiff::tz::TimeZone;
+use jiff::{Span, Timestamp, Unit, Zoned};
 
 fn main() {
     let args = Args::parse_args_default_or_exit();
@@ -14,33 +16,38 @@ fn main() {
         handle_version();
     }
 
+    let format = if let Some(format) = args.format {
+        format
+    } else {
+        "%H:%M:%S".to_string()
+    };
+
     let mut events_n = args.events_n;
 
-    let mut format_command = Command::new("date");
-    let mut timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let mut next_minute = timestamp + (60 - (timestamp % 60));
+    let tz = TimeZone::system();
+    let mut timestamp_zoned = Zoned::now();
+
+    let next_minute_seconds = timestamp_zoned.timestamp().as_second()
+        + (60i64 - (timestamp_zoned.timestamp().as_second() % 60));
+    let mut next_minute_zoned =
+        Zoned::new(Timestamp::new(next_minute_seconds, 0).unwrap(), tz.clone());
 
     while should_continue(&mut events_n) {
-        timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        if timestamp < next_minute {
-            sleep(Duration::from_secs(next_minute - timestamp));
+        timestamp_zoned = Zoned::now();
+        if timestamp_zoned < next_minute_zoned {
+            let wait_span = (next_minute_zoned.timestamp() - timestamp_zoned.timestamp())
+                .total(Unit::Millisecond)
+                .unwrap();
+            assert!(wait_span > 0.0 && wait_span < u64::MAX as f64);
+            sleep(Duration::from_millis(wait_span as u64));
         }
 
-        format_command
-            .args(["--date".to_string(), format!("@{}", next_minute)])
-            .status()
-            .unwrap();
-        next_minute = next_minute + 60;
+        println!("{}", next_minute_zoned.strftime(&format).to_string());
 
-
-
-
+        next_minute_zoned = Zoned::new(
+            next_minute_zoned.timestamp() + Span::new().minutes(1),
+            tz.clone(),
+        );
     }
 }
 
@@ -61,7 +68,7 @@ fn should_continue(events_n: &mut Option<usize>) -> bool {
             } else {
                 false
             }
-        },
+        }
         None => true,
     }
 }
