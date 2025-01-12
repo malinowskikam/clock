@@ -6,4 +6,6 @@ pub enum ClockError {
     ArgsParsingError(#[from] gumdrop::Error),
     #[error("Args validation error: {0}")]
     ArgsValidationError(String),
+    #[error("Clock thread panic")]
+    ClockPanic,
 }

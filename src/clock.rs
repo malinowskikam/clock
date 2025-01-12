@@ -5,8 +5,9 @@ use std::fs::File;
 use std::io::{stdout, Write};
 use std::thread::{sleep, spawn, JoinHandle};
 use std::time::Duration;
+use crate::error::ClockError;
 
-pub fn start_clock(args: Args) -> JoinHandle<()> {
+pub fn start_clock(args: Args) -> JoinHandle<Result<(), ClockError>> {
     spawn(move || {
         let format = if let Some(format) = args.format {
             format
@@ -51,7 +52,9 @@ pub fn start_clock(args: Args) -> JoinHandle<()> {
                 next_minute_zoned.timestamp() + Span::new().minutes(1),
                 tz.clone(),
             );
+
         }
+        Ok(())
     })
 }
 

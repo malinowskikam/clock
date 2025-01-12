@@ -1,93 +1,47 @@
 mod args;
+mod clock;
+mod error;
 
-use std::fs::File;
-use std::io::{stdout, Write};
-use std::process::exit;
-use std::thread::sleep;
-use std::time::Duration;
-
+use crate::clock::start_clock;
 use args::Args;
 use gumdrop::Options;
-use jiff::tz::TimeZone;
-use jiff::{Span, Timestamp, Unit, Zoned};
+use std::process::exit;
+use crate::error::ClockError;
+use crate::error::ClockError::ClockPanic;
 
-fn main() {
-    let args = Args::parse_args_default_or_exit();
+fn main() -> Result<(), ClockError> {
+    let args = match Args::parse_and_validate() {
+        Ok(args) => args,
+        Err(e) => {
+            eprintln!("{}", e);
+            exit(1);
+        }
+    };
 
     if args.version {
         handle_version();
-    }
-
-    let format = if let Some(format) = args.format {
-        format
+    } else if args.help {
+        handle_help(args);
     } else {
-        "%H:%M:%S".to_string()
-    };
-
-    let mut output = if let Some(path) = args.output {
-        Box::new(File::create(path).unwrap()) as Box<dyn Write>
-    } else {
-        Box::new(stdout()) as Box<dyn Write>
-    };
-
-    let mut events_n = args.number;
-
-    let tz = TimeZone::system();
-    let mut timestamp_zoned = Zoned::now();
-
-    let next_minute_seconds = timestamp_zoned.timestamp().as_second()
-        + (60i64 - (timestamp_zoned.timestamp().as_second() % 60));
-    let mut next_minute_zoned =
-        Zoned::new(Timestamp::new(next_minute_seconds, 0).unwrap(), tz.clone());
-
-    while should_continue(&mut events_n) {
-        timestamp_zoned = Zoned::now();
-        if timestamp_zoned < next_minute_zoned {
-            let wait_span = (next_minute_zoned.timestamp() - timestamp_zoned.timestamp())
-                .total(Unit::Millisecond)
-                .unwrap();
-            assert!(wait_span > 0.0 && wait_span < u64::MAX as f64);
-            sleep(Duration::from_millis(wait_span as u64));
-        }
-
-        writeln!(
-            output,
-            "{}",
-            next_minute_zoned.strftime(&format).to_string()
-        )
-        .unwrap();
-
-        next_minute_zoned = Zoned::new(
-            next_minute_zoned.timestamp() + Span::new().minutes(1),
-            tz.clone(),
-        );
+        let handle = start_clock(args);
+        handle.join().map_err(|e| ClockPanic)??;
     }
-}
 
-/// The program should continue if the events_n option is unspecified or if it's specified
-/// and positive.
-///
-/// # Arguments
-///
-/// * `events_n`: Current events_n Option. Will be decremented if specified.
-///
-/// returns: ``true`` if the program should continue
-fn should_continue(events_n: &mut Option<usize>) -> bool {
-    match events_n {
-        Some(n) => {
-            if *n > 0 {
-                *n -= 1;
-                true
-            } else {
-                false
-            }
-        }
-        None => true,
-    }
+    Ok(())
 }
 
 /// Handle the ``--version`` argument. The program should print the version info and exit.
 fn handle_version() -> ! {
     println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    exit(0)
+}
+
+/// Handle the ``--version`` argument. The program should print the version info and exit.
+fn handle_help(args: Args) -> ! {
+    println!(
+        "Usage: {} [OPTIONS]\n\n{}",
+        env!("CARGO_PKG_NAME"),
+        args.self_usage()
+    );
     exit(0)
 }
