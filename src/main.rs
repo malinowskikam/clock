@@ -1,15 +1,16 @@
 mod args;
 mod clock;
 mod error;
+mod scheduler;
+mod output;
 
 use crate::clock::start_clock;
 use args::Args;
 use gumdrop::Options;
 use std::process::exit;
-use crate::error::ClockError;
-use crate::error::ClockError::ClockPanic;
+use crate::error::{ClockError, Result};
 
-fn main() -> Result<(), ClockError> {
+fn main() -> Result<()> {
     let args = match Args::parse_and_validate() {
         Ok(args) => args,
         Err(e) => {
@@ -24,7 +25,7 @@ fn main() -> Result<(), ClockError> {
         handle_help(args);
     } else {
         let handle = start_clock(args);
-        handle.join().map_err(|e| ClockPanic)??;
+        handle.join().map_err(|_| ClockError::ClockPanic)??;
     }
 
     Ok(())
